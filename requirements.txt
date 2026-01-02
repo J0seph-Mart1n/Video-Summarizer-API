@@ -1,0 +1,11 @@
+fastapi
+phidata
+pydantic
+python-dotenv
+youtube_transcript_api
+uvicorn
+groq
+requests
+Werkzeug
+gunicorn
+duckduckgo-search
