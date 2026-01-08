@@ -1,18 +1,32 @@
 import re
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from phi.agent import Agent, RunResponse
 from phi.model.groq import Groq
 from phi.tools.duckduckgo import DuckDuckGo
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from dotenv import load_dotenv
+import os
 
 # Load environment variables from .env file
 load_dotenv()
 
+PROXY_USERNAME = os.getenv("PROXY_USERNAME")
+PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
+
 # Initialize FastAPI
 app = FastAPI(title="PhiData YouTube Summarizer API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # --- Pydantic Models for Input/Output ---
 class VideoRequest(BaseModel):
@@ -49,7 +63,12 @@ async def summarize_video(request: VideoRequest):
     # 2. Fetch Transcript
     try:
         # Returns a list of dicts: [{'text': 'hello', 'start': 0.0, ...}, ...]
-        ytt_api = YouTubeTranscriptApi()
+        ytt_api = YouTubeTranscriptApi(
+            proxy_config=WebshareProxyConfig(
+                proxy_username=PROXY_USERNAME,
+                proxy_password=PROXY_PASSWORD,
+            )
+        )
         transcript_list = ytt_api.fetch(video_id)
         
         # Combine text (Fixing the dictionary access here)
