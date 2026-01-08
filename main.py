@@ -51,6 +51,50 @@ def get_video_id(url: str) -> Optional[str]:
             return match.group(1)
     return None
 
+def get_analyst():
+    # A. The Transcript Analyst
+    return Agent(
+        name="Transcript Analyst",
+        role="Extracts logical segments and raw data from captions",
+        model=Groq(id="llama-3.3-70b-versatile"),
+        instructions=[
+            "Clean filler words from the transcript.",
+            "Divide the content into logical chapters based on the flow of conversation.",
+            "Extract all specific entities like tools, links, or names mentioned."
+        ],
+    )
+
+def get_miner():
+    # B. The Insight Miner
+    return Agent(
+        name="Insight Miner",
+        role="Identifies deep insights and the 'why' behind the video",
+        model=Groq(id="llama-3.3-70b-versatile"),
+        tools=[DuckDuckGo()],
+        instructions=[
+            "Identify the top 3-5 unique insights or 'Gold Nuggets'.",
+            "Determine the creator's tone and the target audience.",
+            "Highlight the primary problem and solution discussed."
+        ],
+    )
+
+def get_editor():
+    # C. The Lead Editor (The Orchestrator)
+    editor = Agent(
+        name="Lead Editor",
+        role="Final Writer",
+        model=Groq(id="llama-3.3-70b-versatile"),
+        instructions=[
+            "Receive the analysis from the Analyst and Miner.",
+            "Format the final output into professional Markdown.",
+            "Start with a 'TL;DR' section.",
+            "Follow with a 'Detailed Breakdown' using headers.",
+            "End with a 'Key Takeaways' checklist.",
+            "Ensure the summary is concise and removes any fluff."
+        ],
+        markdown=True,
+    )
+
 # --- Core Logic ---
 @app.post("/summarize", response_model=SummaryResponse)
 async def summarize_video(request: VideoRequest):
@@ -79,58 +123,38 @@ async def summarize_video(request: VideoRequest):
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Transcript unavailable: {str(e)}")
 
-    # 3. Define Agents (Instantiated per request to ensure fresh context)
-    
-    # A. The Transcript Analyst
-    analyst = Agent(
-        name="Transcript Analyst",
-        role="Extracts logical segments and raw data from captions",
-        model=Groq(id="llama-3.3-70b-versatile"),
-        instructions=[
-            "Clean filler words from the transcript.",
-            "Divide the content into logical chapters based on the flow of conversation.",
-            "Extract all specific entities like tools, links, or names mentioned."
-        ],
-    )
-
-    # B. The Insight Miner
-    miner = Agent(
-        name="Insight Miner",
-        role="Identifies deep insights and the 'why' behind the video",
-        model=Groq(id="llama-3.3-70b-versatile"),
-        tools=[DuckDuckGo()],
-        instructions=[
-            "Identify the top 3-5 unique insights or 'Gold Nuggets'.",
-            "Determine the creator's tone and the target audience.",
-            "Highlight the primary problem and solution discussed."
-        ],
-    )
-
-    # C. The Lead Editor (The Orchestrator)
-    editor = Agent(
-        name="Lead Editor",
-        team=[analyst, miner],
-        model=Groq(id="llama-3.3-70b-versatile"),
-        instructions=[
-            "Receive the analysis from the Analyst and Miner.",
-            "Format the final output into professional Markdown.",
-            "Start with a 'TL;DR' section.",
-            "Follow with a 'Detailed Breakdown' using headers.",
-            "End with a 'Key Takeaways' checklist.",
-            "Ensure the summary is concise and removes any fluff."
-        ],
-        markdown=True,
-    )
-
-    # 4. Run the Agent Team
+    # 3. Run the Agent Team
     try:
-        # stream=False waits for the full generation
-        response = editor.run(caption_text, stream=False)
+        # --- PIPELINE EXECUTION ---
+
+        # Step 1: Analyze Structure
+        analyst = get_analyst()
+        print("Running Analyst...")
+        analyst_response: RunResponse = analyst.run(caption_text, stream=False)
+        raw_structure = analyst_response.content
+
+        # Step 2: Mine Insights
+        miner = get_miner()
+        print("Running Miner...")
+        miner_response: RunResponse = miner.run(caption_text, stream=False)
+        raw_insights = miner_response.content
+
+        # Step 3: Final Edit
+        # We combine the outputs from step 1 & 2 manually
+        combined_context = (
+            f"Here is the structural analysis of the video:\n{raw_structure}\n\n"
+            f"Here are the deep insights found:\n{raw_insights}\n\n"
+            "Please compile this into the final report."
+        )
+
+        editor = get_editor()
+        print("Running Editor...")
+        final_response: RunResponse = editor.run(combined_context, stream=False)
         
         # Return the content content
         return SummaryResponse(
             video_id=video_id,
-            summary=response.content
+            summary=final_response.content
         )
         
     except Exception as e:
@@ -152,6 +176,7 @@ async def create_item(item: Item):
     return item
 
 
+# Sample code to test fetching transcript and running the agent
 # video_id = "JDYtbVxtBhw"
 
 # ytt_api = YouTubeTranscriptApi()
