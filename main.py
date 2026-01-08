@@ -69,8 +69,10 @@ async def summarize_video(request: VideoRequest):
                 proxy_password=PROXY_PASSWORD,
             )
         )
+        print("Fetching transcript for video ID:", video_id)
         transcript_list = ytt_api.fetch(video_id)
-        
+        print("Transcript fetched successfully, number of snippets:", len(transcript_list))
+
         # Combine text (Fixing the dictionary access here)
         caption_text = " ".join([snippet['text'] for snippet in transcript_list])
         
