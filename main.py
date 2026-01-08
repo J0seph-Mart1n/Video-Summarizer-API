@@ -74,7 +74,7 @@ async def summarize_video(request: VideoRequest):
         print("Transcript fetched successfully, number of snippets:", len(transcript_list))
 
         # Combine text (Fixing the dictionary access here)
-        caption_text = " ".join([snippet['text'] for snippet in transcript_list])
+        caption_text = " ".join([snippet.text for snippet in transcript_list])
         
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Transcript unavailable: {str(e)}")
