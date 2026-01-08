@@ -49,7 +49,8 @@ async def summarize_video(request: VideoRequest):
     # 2. Fetch Transcript
     try:
         # Returns a list of dicts: [{'text': 'hello', 'start': 0.0, ...}, ...]
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        ytt_api = YouTubeTranscriptApi()
+        transcript_list = ytt_api.fetch(video_id)
         
         # Combine text (Fixing the dictionary access here)
         caption_text = " ".join([snippet['text'] for snippet in transcript_list])
