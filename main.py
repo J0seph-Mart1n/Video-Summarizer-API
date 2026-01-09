@@ -80,7 +80,7 @@ def get_miner():
 
 def get_editor():
     # C. The Lead Editor (The Orchestrator)
-    editor = Agent(
+    return Agent(
         name="Lead Editor",
         role="Final Writer",
         model=Groq(id="llama-3.3-70b-versatile"),
